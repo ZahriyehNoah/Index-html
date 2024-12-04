@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tic Tac Toe with AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #game-container {
+            text-align: center;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-gap: 5px;
+            margin: 20px 0;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 60px;
+            cursor: pointer;
+            background-color: white;
+            transition: background-color 0.3s;
+        }
+        .cell:hover {
+            background-color: #e0e0e0;
+        }
+        #status {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        button {
+            font-size: 18px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        #difficulty-select {
+            font-size: 18px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="status">Player X's Turn</div>
+        <div id="board"></div>
+        <div id="controls">
+            <select id="difficulty-select">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+            <button id="reset-btn">Reset Game</button>
+            <button id="ai-opponent-btn">Play vs AI</button>
+        </div>
+    </div>
+
+    <script>
+        class TicTacToeAI {
+            constructor() {
+                this.board = ['', '', '', '', '', '', '', '', ''];
+                this.currentPlayer = 'X';
+                this.gameActive = true;
+                this.againstAI = false;
+                this.difficulty = 'easy';
+                this.winningCombos = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8],  // Rows
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8],  // Columns
+                    [0, 4, 8], [2, 4, 6]              // Diagonals
+                ];
+                this.initBoard();
+                this.addEventListeners();
+            }
+
+            initBoard() {
+                const boardElement = document.getElementById('board');
+                boardElement.innerHTML = '';
+                this.board.forEach((cell, index) => {
+                    const cellElement = document.createElement('div');
+                    cellElement.classList.add('cell');
+                    cellElement.dataset.index = index;
+                    boardElement.appendChild(cellElement);
+                });
+            }
+
+            addEventListeners() {
+                const cells = document.querySelectorAll('.cell');
+                cells.forEach(cell => {
+                    cell.addEventListener('click', this.handleCellClick.bind(this));
+                });
+
+                const resetBtn = document.getElementById('reset-btn');
+                resetBtn.addEventListener('click', this.resetGame.bind(this));
+
+                const aiOpponentBtn = document.getElementById('ai-opponent-btn');
+                aiOpponentBtn.addEventListener('click', this.toggleAIMode.bind(this));
+
+                const difficultySelect = document.getElementById('difficulty-select');
+                difficultySelect.addEventListener('change', this.changeDifficulty.bind(this));
+            }
+
+            handleCellClick(event) {
+                const index = event.target.dataset.index;
+                
+                if (!this.gameActive || this.board[index] !== '') return;
+
+                this.board[index] = this.currentPlayer;
+                event.target.textContent = this.currentPlayer;
+
+                if (this.checkWinner()) {
+                    this.endGame(false);
+                } else if (this.isDraw()) {
+                    this.endGame(true);
+                } else {
+                    this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+                    this.updateStatus();
+
+                    // AI move if against AI and it's AI's turn
+                    if (this.againstAI && this.currentPlayer === 'O') {
+                        setTimeout(() => this.makeAIMove(), 500);
+                    }
+                }
+            }
+
+            makeAIMove() {
+                let move;
+                switch (this.difficulty) {
+                    case 'easy':
+                        move = this.easyAI();
+                        break;
+                    case 'medium':
+                        move = this.mediumAI();
+                        break;
+                    case 'hard':
+                        move = this.hardAI();
+                        break;
+                }
+
+                if (move !== undefined) {
+                    const cellElement = document.querySelector(`.cell[data-index="${move}"]`);
+                    this.board[move] = this.currentPlayer;
+                    cellElement.textContent = this.currentPlayer;
+
+                    if (this.checkWinner()) {
+                        this.endGame(false);
+                    } else if (this.isDraw()) {
+                        this.endGame(true);
+                    } else {
+                        this.currentPlayer = 'X';
+                        this.updateStatus();
+                    }
+                }
+            }
+
+            easyAI() {
+                const emptyCells = this.board.reduce((acc, cell, index) => 
+                    cell === '' ? [...acc, index] : acc, []);
+                return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            }
+
+            mediumAI() {
+                // Try to block player's winning move or take winning move
+                for (let combo of this.winningCombos) {
+                    const [a, b, c] = combo;
+                    // Check for potential winning move
+                    if (this.board[a] === 'O' && this.board[b] === 'O' && this.board[c] === '') return c;
+                    if (this.board[a] === 'O' && this.board[c] === 'O' && this.board[b] === '') return b;
+                    if (this.board[b] === 'O' && this.board[c] === 'O' && this.board[a] === '') return a;
+
+                    // Check for blocking player's potential winning move
+                    if (this.board[a] === 'X' && this.board[b] === 'X' && this.board[c] === '') return c;
+                    if (this.board[a] === 'X' && this.board[c] === 'X' && this.board[b] === '') return b;
+                    if (this.board[b] === 'X' && this.board[c] === 'X' && this.board[a] === '') return a;
+                }
+                // If no strategic move, use easy AI
+                return this.easyAI();
+            }
+
+            hardAI() {
+                const bestMove = this.minimax(this.board, 'O');
+                return bestMove.index;
+            }
+
+            minimax(board, player) {
+                const availSpots = board.reduce((acc, cell, index) => 
+                    cell === '' ? [...acc, index] : acc, []);
+
+                // Check terminal states
+                if (this.checkWinningState(board, 'X')) return { score: -10 };
+                if (this.checkWinningState(board, 'O')) return { score: 10 };
+                if (availSpots.length === 0) return { score: 0 };
+
+                const moves = [];
+
+                for (let i = 0; i < availSpots.length; i++) {
+                    const move = {};
+                    move.index = availSpots[i];
+
+                    board[availSpots[i]] = player;
+
+                    if (player === 'O') {
+                        const result = this.minimax(board, 'X');
+                        move.score = result.score;
+                    } else {
+                        const result = this.minimax(board, 'O');
+                        move.score = result.score;
+                    }
+
+                    board[availSpots[i]] = '';
+                    moves.push(move);
+                }
+
+                let bestMove;
+                if (player === 'O') {
+                    let bestScore = -Infinity;
+                    for (let i = 0; i < moves.length; i++) {
+                        if (moves[i].score > bestScore) {
+                            bestScore = moves[i].score;
+                            bestMove = moves[i];
+                        }
+                    }
+                } else {
+                    let bestScore = Infinity;
+                    for (let i = 0; i < moves.length; i++) {
+                        if (moves[i].score < bestScore) {
+                            bestScore = moves[i].score;
+                            bestMove = moves[i];
+                        }
+                    }
+                }
+
+                return bestMove;
+            }
+
+            checkWinningState(board, player) {
+                return this.winningCombos.some(combo => 
+                    combo.every(index => board[index] === player)
+                );
+            }
+
+            checkWinner() {
+                return this.winningCombos.some(combo => {
+                    return combo.every(index => 
+                        this.board[index] === this.currentPlayer
+                    );
+                });
+            }
+
+            isDraw() {
+                return this.board.every(cell => cell !== '');
+            }
+
+            endGame(draw) {
+                this.gameActive = false;
+                const statusElement = document.getElementById('status');
+                
+                if (draw) {
+                    statusElement.textContent = "It's a Draw!";
+                } else {
+                    statusElement.textContent = `Player ${this.currentPlayer} Wins!`;
+                }
+            }
+
+            updateStatus() {
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = `${this.againstAI ? (this.currentPlayer === 'X' ? "Your" : "AI's") : `Player ${this.currentPlayer}`}'s Turn`;
+            }
+
+            resetGame() {
+                this.board = ['', '', '', '', '', '', '', '', ''];
+                this.currentPlayer = 'X';
+                this.gameActive = true;
+                this.initBoard();
+                this.addEventListeners();
+                document.getElementById('status').textContent = this.againstAI ? "Your Turn" : "Player X's Turn";
+            }
+
+            toggleAIMode() {
+                this.againstAI = !this.againstAI;
+                const aiOpponentBtn = document.getElementById('ai-opponent-btn');
+                aiOpponentBtn.textContent = this.againstAI ? 'Play vs Human' : 'Play vs AI';
+                this.resetGame();
+            }
+
+            changeDifficulty() {
+                const difficultySelect = document.getElementById('difficulty-select');
+                this.difficulty = difficultySelect.value;
+                if (this.againstAI && this.currentPlayer === 'O') {
+                    this.makeAIMove();
+                }
+            }
+        }
+
+        // Initialize the game
+        new TicTacToeAI();
+    </script>
+</body>
+</html>
